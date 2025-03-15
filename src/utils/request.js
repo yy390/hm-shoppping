@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { Toast } from 'vant'
+import store from '@/store'
 // 1、创建axios实例，将来对创建出来的axios实例，进行自定义配置
 // 不会污染原始的axios实例
 const instance = axios.create({
@@ -19,8 +20,12 @@ instance.interceptors.request.use(function (config) {
     forbidClick: true,
     duration: 0
   })
-  console.log(123)
-
+  // 只要有token，就在请求时携带，便于请求时需要授权的接口
+  const token = store.getters.token
+  if (token) {
+    config.headers['Access-Token'] = token
+    config.headers.platform = 'H5'
+  }
   return config
 }, function (error) {
   // 对请求错误做些什么

@@ -23,13 +23,13 @@
     <div class="info">
       <div class="title">
         <div class="price">
-          <span class="now">￥{{detail.goods_price_min}}</span>
-          <span class="oldprice">￥{{detail.goods_price_max}}</span>
+          <span class="now">￥{{ detail.goods_price_min }}</span>
+          <span class="oldprice">￥{{ detail.goods_price_max }}</span>
         </div>
-        <div class="sellcount">已售{{detail.goods_sales}}件</div>
+        <div class="sellcount">已售{{ detail.goods_sales }}件</div>
       </div>
       <div class="msg text-ellipsis-2">
-        {{detail.goods_name}}
+        {{ detail.goods_name }}
       </div>
 
       <div class="service">
@@ -46,53 +46,94 @@
     <!-- 商品评价 -->
     <div class="comment">
       <div class="comment-title">
-        <div class="left">商品评价 ({{total}}条)</div>
+        <div class="left">商品评价 ({{ total }}条)</div>
         <div class="right">查看更多 <van-icon name="arrow" /></div>
       </div>
       <div class="comment-list">
-        <div class="comment-item" v-for="item in commentList" :key="item.comment_id">
+        <div
+          class="comment-item"
+          v-for="item in commentList"
+          :key="item.comment_id"
+        >
           <div class="top">
             <img :src="item.user.avatar_url || defaultImg" alt="" />
-            <div class="name">{{item.user.nick_name}}</div>
+            <div class="name">{{ item.user.nick_name }}</div>
             <van-rate
               :size="16"
-              :value="item.score/2"
+              :value="item.score / 2"
               color="#ffd21e"
               void-icon="star"
               void-color="#eee"
             />
           </div>
-          <div class="content">{{item.content}}</div>
-          <div class="time">{{item.create_time}}</div>
+          <div class="content">{{ item.content }}</div>
+          <div class="time">{{ item.create_time }}</div>
         </div>
       </div>
     </div>
 
     <!-- 商品描述 -->
-    <div class="desc" v-html="detail.content">
-    </div>
+    <div class="desc" v-html="detail.content"></div>
 
     <!-- 底部 -->
     <div class="footer">
-      <div class="icon-home">
+      <div @click="$router.push('/')" class="icon-home">
         <van-icon name="wap-home-o" />
         <span>首页</span>
       </div>
-      <div class="icon-cart">
+      <div @click="$router.push('/cart')" class="icon-cart">
+        <span v-if="cartTotal > 0" class="num">{{ cartTotal }}</span>
         <van-icon name="shopping-cart-o" />
         <span>购物车</span>
       </div>
-      <div class="btn-add">加入购物车</div>
-      <div class="btn-buy">立刻购买</div>
+      <div @click="addFn" class="btn-add">加入购物车</div>
+      <div @click="buyFn" class="btn-buy">立刻购买</div>
     </div>
+    <van-action-sheet
+      v-model="showPannle"
+      :title="mode === 'cart' ? '加入购物车' : '立刻购买'"
+    >
+      <div class="product">
+        <div class="product-title">
+          <div class="left">
+            <img :src="detail.goods_image" alt="" />
+          </div>
+          <div class="right">
+            <div class="price">
+              <span>¥</span>
+              <span class="nowprice">{{ detail.goods_price_min }}</span>
+            </div>
+            <div class="count">
+              <span>库存</span>
+              <span>{{ detail.stock_total }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="num-box">
+          <span>数量</span>
+          <CountBox v-model="addCount"></CountBox>
+        </div>
+        <!-- 有库存才显示按钮 -->
+        <div class="showbtn" v-if="detail.stock_total > 0">
+          <div @click="addCart" class="btn" v-if="true">加入购物车</div>
+          <div class="btn now" v-else>立刻购买</div>
+        </div>
+        <div class="btn-none" v-else>该商品已抢完</div>
+      </div>
+    </van-action-sheet>
   </div>
 </template>
 
 <script>
 import { getProDetail, getProComments } from '@/api/product'
 import defaultImg from '@/assets/default-avatar.png'
+import CountBox from '@/components/CountBox.vue'
+import { addCart } from '@/api/cart'
 export default {
   name: 'ProDetail',
+  components: {
+    CountBox
+  },
   data () {
     return {
       images: [],
@@ -100,7 +141,11 @@ export default {
       detail: {},
       total: 0, // 评价总量
       commentList: [], // 评价列表
-      defaultImg
+      defaultImg,
+      showPannle: false,
+      mode: 'cart', // 标记弹层状态
+      addCount: 1, // 数字框绑定的数据
+      cartTotal: 0
     }
   },
   computed: {
@@ -117,14 +162,60 @@ export default {
       this.current = index
     },
     async getDetail () {
-      const { data: { detail } } = await getProDetail(this.goodsId)
+      const {
+        data: { detail }
+      } = await getProDetail(this.goodsId)
       this.detail = detail
       this.images = detail.goods_images
     },
     async getComments () {
-      const { data: { list, total } } = await getProComments(this.goodsId, 3)
+      const {
+        data: { list, total }
+      } = await getProComments(this.goodsId, 3)
       this.commentList = list
       this.total = total
+    },
+    addFn () {
+      this.mode = 'cart'
+      this.showPannle = true
+    },
+    buyFn () {
+      this.mode = 'buyNow'
+      this.showPannle = true
+    },
+    async addCart () {
+      if (!this.$store.getters.token) {
+        // console.log('345')
+        this.$dialog
+          .confirm({
+            title: '温馨提示',
+            message: '此时需要先登录才能继续操作哦',
+            confirmButtonText: '去登陆',
+            cancleButtonText: '再逛逛'
+          })
+          .then(() => {
+            // 如果希望，跳转到登陆=》登录之后能够跳转回来，需要在跳转到时候携带参数（当前路径地址）
+            // this.$route.fullPath(会包含查询参数)
+            this.$router.replace({
+              path: '/login',
+              query: {
+                backUrl: this.$route.fullPath
+              }
+            })
+          })
+          .catch(() => {})
+        return
+      }
+      const { data } = await addCart(
+        this.goodsId,
+        this.addCount,
+        this.detail.skuList[0].goods_sku_id
+      )
+      // console.log(res)
+      this.cartTotal = data.cartTotal
+      this.$toast('加入购物车成功')
+      this.showPannle = false
+      // console.log('正常请求')
     }
   }
 }
@@ -276,5 +367,70 @@ export default {
 
 .tips {
   padding: 10px;
+}
+//弹层样式
+.product {
+  .product-title {
+    display: flex;
+    .left {
+      img {
+        width: 90px;
+        height: 90px;
+      }
+      margin: 10px;
+    }
+    .right {
+      flex: 1;
+      padding: 10px;
+      .price {
+        font-size: 14px;
+        color: #fe560a;
+        .nowprice {
+          font-size: 24px;
+          margin: 0 5px;
+        }
+      }
+    }
+  }
+
+  .num-box {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+    align-items: center;
+  }
+
+  .btn,
+  .btn-none {
+    height: 40px;
+    line-height: 40px;
+    margin: 20px;
+    border-radius: 20px;
+    text-align: center;
+    color: rgb(255, 255, 255);
+    background-color: rgb(255, 148, 2);
+  }
+  .btn.now {
+    background-color: #fe5630;
+  }
+  .btn-none {
+    background-color: #cccccc;
+  }
+}
+.footer .icon-cart {
+  position: relative;
+  padding: 0 6px;
+  .num {
+    z-index: 999;
+    position: absolute;
+    top: -2px;
+    right: 0;
+    min-width: 16px;
+    padding: 0 4px;
+    color: #fff;
+    text-align: center;
+    background-color: #ee0a24;
+    border-radius: 50%;
+  }
 }
 </style>

@@ -102,7 +102,9 @@ export default {
       this.$store.commit('user/setUserInfo', res.data)
       // console.log(res)
       this.$toast('登录成功')
-      this.$router.push('/')
+      // 进行判断，看地址栏有无回跳地址
+      const url = this.$route.query.backUrl || '/'
+      this.$router.replace(url)
     }
   },
   // 离开页面,清楚计时器
