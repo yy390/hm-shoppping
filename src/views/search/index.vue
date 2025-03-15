@@ -2,32 +2,58 @@
   <div class="search">
     <van-nav-bar title="商品搜索" left-arrow @click-left="$router.go(-1)" />
 
-    <van-search show-action placeholder="请输入搜索关键词" clearable>
+    <van-search v-model="search" show-action placeholder="请输入搜索关键词" clearable>
       <template #action>
-        <div>搜索</div>
+        <div @click="goSearch(search)">搜索</div>
       </template>
     </van-search>
 
     <!-- 搜索历史 -->
-    <div class="search-history" v-if="!history.length <=`` 0">
+    <div class="search-history" v-if="history.length > 0">
       <div class="title">
         <span>最近搜索</span>
-        <van-icon name="delete-o" size="16" />
+        <van-icon @click="clear" name="delete-o" size="16" />
       </div>
       <div class="list">
-        <div v-for="item in history" :key="item"
-        @click="$router.push('/search')" class="list-item">{{item}}</div>
+        <div
+          v-for="item in history" :key="item" @click="goSearch(item)"
+          class="list-item">
+          {{ item }}
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script>
+import { getHistoryList, setHistoryList } from '@/utils/storage'
 export default {
   name: 'SearchIndex',
   data () {
     return {
-      history: ['平板', '彩妆', '服饰']
+      search: '', // 输入框内容
+      history: getHistoryList()
+    }
+  },
+  methods: {
+    goSearch (key) {
+      // console.log('进行了搜索，搜索历史要更新', key)
+      // indexof用于查找key是否在history中
+      const index = this.history.indexOf(key)
+      if (index !== -1) {
+        // 删除存在的
+        this.history.splice(index, 1)
+      }
+      // 在最前面添加
+      this.history.unshift(key)
+      setHistoryList(this.history)
+
+      // 跳转到搜索页列表中
+      this.$router.push(`/searchlist?search=${key}`)
+    },
+    clear () {
+      this.history = []
+      setHistoryList([])
     }
   }
 }
